@@ -389,24 +389,27 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-                {Object.entries(grouped).map(([cat,items]) => (
-                  <div key={cat} style={{ marginBottom:16 }}>
-                    <div style={{ fontSize:"0.75rem", fontWeight:700, color:CAT_COLORS[cat]||"#7d8590", textTransform:"uppercase", letterSpacing:"0.8px", marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
-                      <span style={{ width:6, height:6, borderRadius:"50%", background:CAT_COLORS[cat], display:"inline-block" }} />{cat}
+                {Object.entries(grouped).map(([cat,items]) => {
+                  const sorted = [...items].sort((a,b) => (a.bought===b.bought) ? 0 : a.bought ? 1 : -1);
+                  return (
+                    <div key={cat} style={{ marginBottom:16 }}>
+                      <div style={{ fontSize:"0.75rem", fontWeight:700, color:CAT_COLORS[cat]||"#7d8590", textTransform:"uppercase", letterSpacing:"0.8px", marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
+                        <span style={{ width:6, height:6, borderRadius:"50%", background:CAT_COLORS[cat], display:"inline-block" }} />{cat}
+                      </div>
+                      <div style={{ background:"#161b22", border:"1px solid #21262d", borderRadius:12, overflow:"hidden" }}>
+                        {sorted.map((item,i) => (
+                          <div key={item.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"13px 16px", borderBottom:i<sorted.length-1?"1px solid #21262d":"none", opacity:item.bought?0.45:1, transition:"all 0.2s" }}>
+                            <button onClick={()=>markBought(item.id)} style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, border:"2px solid #3fb950", background:item.bought?"#3fb950":"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}>
+                              <Icon name="check" size={13} color={item.bought?"#fff":"#3fb950"} />
+                            </button>
+                            <div style={{ flex:1, fontWeight:500, fontSize:"0.95rem", textDecoration:item.bought?"line-through":"none", color:item.bought?"#7d8590":"#e6edf3" }}>{item.name}</div>
+                            {item.alwaysBuy && !item.bought && <Badge label="תמיד" color="#e3b341" />}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ background:"#161b22", border:"1px solid #21262d", borderRadius:12, overflow:"hidden" }}>
-                      {items.map((item,i) => (
-                        <div key={item.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"13px 16px", borderBottom:i<items.length-1?"1px solid #21262d":"none", opacity:item.bought?0.45:1, transition:"opacity 0.2s" }}>
-                          <button onClick={()=>markBought(item.id)} style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, border:`2px solid ${item.bought?"#3fb950":"#3fb950"}`, background:item.bought?"#3fb950":"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}>
-                            <Icon name="check" size={13} color={item.bought?"#fff":"#3fb950"} />
-                          </button>
-                          <div style={{ flex:1, fontWeight:500, fontSize:"0.95rem", textDecoration:item.bought?"line-through":"none", color:item.bought?"#7d8590":"#e6edf3" }}>{item.name}</div>
-                          {item.alwaysBuy && !item.bought && <Badge label="תמיד" color="#e3b341" />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </>
             )}
 
