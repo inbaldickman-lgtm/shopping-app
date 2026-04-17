@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ─── Supabase client ────────────────────────────────────────────────────────
-const SUPABASE_URL = "https://rizqgointhkythtnifxf.supabase.co";
-const SUPABASE_KEY = "sb_publishable_9jtOV9lQemCcP-5h9SAf9g_dKXnXovQ";
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_KEY = "YOUR_SUPABASE_KEY";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ─── Storage helpers ────────────────────────────────────────────────────────
@@ -51,10 +51,10 @@ const Icon = ({ name, size = 18, color = "currentColor" }) => {
 };
 
 // ─── Constants ──────────────────────────────────────────────────────────────
-const CATEGORIES = ["ירקות ופירות","בשר ודגים","מוצרי חלב","לחם ואפייה","שימורים וחטיפים","קפואים","משקאות","ניקיון","טיפוח","אחר"];
+const CATEGORIES = ["ירקות ופירות","בשר ודגים","מוצרי חלב","לחם ואפייה","יבשים","שימורים וחטיפים","קפואים","משקאות","ניקיון","טיפוח","אחר"];
 const CAT_COLORS = {
   "ירקות ופירות":"#3fb950","בשר ודגים":"#f85149","מוצרי חלב":"#58a6ff",
-  "לחם ואפייה":"#e3b341","שימורים וחטיפים":"#bc8cff","קפואים":"#79c0ff",
+  "לחם ואפייה":"#e3b341","יבשים":"#d4a574","שימורים וחטיפים":"#bc8cff","קפואים":"#79c0ff",
   "משקאות":"#56d364","ניקיון":"#ff7b72","טיפוח":"#f0883e","אחר":"#8b949e",
 };
 
@@ -85,6 +85,7 @@ export default function App() {
   const [addAlways, setAddAlways] = useState(false);
   const [addAlwaysHome, setAddAlwaysHome] = useState(false);
   const [filterCat, setFilterCat] = useState("הכל");
+  const [editingProduct, setEditingProduct] = useState(null); // {id, name, category}
 
   const [recipeName, setRecipeName]           = useState("");
   const [ingredientInput, setIngredientInput] = useState("");
@@ -96,7 +97,18 @@ export default function App() {
   const [lastSaved, setLastSaved]             = useState(null);
 
   useEffect(() => {
-    load("hm_products2").then(d => setProducts(d || []));
+    load("hm_products2").then(d => {
+      if (!d) { setProducts([]); return; }
+      // Remove duplicates by name (keep first occurrence)
+      const seen = new Set();
+      const deduped = d.filter(p => {
+        const key = p.name.trim().toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setProducts(deduped);
+    });
     load("hm_recipes").then(d => setRecipes(d || []));
   }, []);
 
@@ -136,6 +148,12 @@ export default function App() {
   const toggleAlways     = id => setProducts(p => p.map(x => x.id===id ? {...x, alwaysBuy:!x.alwaysBuy} : x));
   const toggleAlwaysHome = id => setProducts(p => p.map(x => x.id===id ? {...x, alwaysHome:!x.alwaysHome} : x));
   const deleteProduct    = id => setProducts(p => p.filter(x => x.id!==id));
+  const saveProductEdit  = () => {
+    if (!editingProduct || !editingProduct.name.trim()) return;
+    setProducts(p => p.map(x => x.id===editingProduct.id ? {...x, name:editingProduct.name.trim(), category:editingProduct.category} : x));
+    setEditingProduct(null);
+    showToast("המוצר עודכן ✓");
+  };
   // Mark as bought: stays in list as "bought" (greyed out), but won't disappear until next reset
   const markBought       = id => setProducts(p => p.map(x => x.id===id ? {...x, bought:!x.bought} : x));
   const resetAlwaysBuy   = ()  => setProducts(p => p.map(x => x.alwaysBuy ? {...x, outOfStock:true, bought:false} : x));
@@ -358,7 +376,10 @@ export default function App() {
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
                     {toBuy.some(x=>x.bought) && (
-                      <button onClick={()=>setProducts(p=>p.map(x=>x.bought?{...x,outOfStock:x.alwaysBuy,bought:false}:x))}
+                      <button onClick={()=>setProducts(p=>p.map(x=>{
+                        if (x.bought) return {...x, outOfStock:x.alwaysBuy, bought:false};
+                        return x;
+                      }))}
                         style={{ background:"#3fb95022", border:"1px solid #3fb95050", borderRadius:8, color:"#3fb950", fontFamily:"inherit", fontSize:"0.78rem", fontWeight:700, padding:"6px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
                         <Icon name="check" size={13} color="#3fb950" /> סיום קניות
                       </button>
@@ -389,43 +410,9 @@ export default function App() {
               </>
             )}
 
-            {products.filter(x=>!x.outOfStock&&!x.alwaysBuy).length>0 && (
-              <div style={{ marginTop:24 }}>
-                <div style={{ fontSize:"0.78rem", fontWeight:700, color:"#484f58", textTransform:"uppercase", letterSpacing:"0.8px", marginBottom:10 }}>במלאי — סמן כנגמר</div>
-                <div style={{ position:"relative", marginBottom:10 }}>
-                  <svg style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#484f58" strokeWidth={2.5} strokeLinecap="round">
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  </svg>
-                  <input style={{ ...inputStyle, width:"100%", paddingRight:38, paddingLeft:36 }}
-                    placeholder="חפש מוצר לסימון כנגמר..."
-                    value={outOfStockSearch} onChange={e=>setOutOfStockSearch(e.target.value)} />
-                  {outOfStockSearch && (
-                    <button onClick={()=>setOutOfStockSearch("")} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center" }}>
-                      <Icon name="x" size={14} color="#484f58" />
-                    </button>
-                  )}
-                </div>
-                {(() => {
-                  const inStock = products.filter(x=>!x.outOfStock&&!x.alwaysBuy);
-                  const q = outOfStockSearch.trim();
-                  const filtered = q ? inStock.filter(x=>x.name.includes(q)) : inStock;
-                  if (q && filtered.length===0) return <div style={{ textAlign:"center", color:"#484f58", padding:"20px 0", fontSize:"0.85rem" }}>לא נמצא "{q}"</div>;
-                  return (
-                    <div style={{ background:"#161b22", border:"1px solid #21262d", borderRadius:12, overflow:"hidden" }}>
-                      {filtered.map((item,i,arr) => (
-                        <div key={item.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px", borderBottom:i<arr.length-1?"1px solid #21262d":"none" }}>
-                          <button onClick={()=>{toggleOutOfStock(item.id);setOutOfStockSearch("");}} style={{ width:24, height:24, borderRadius:"50%", flexShrink:0, border:"2px solid #30363d", background:"transparent", cursor:"pointer" }} />
-                          <div style={{ flex:1, fontSize:"0.9rem", color:"#7d8590" }}>
-                            {q ? item.name.split(new RegExp(`(${q})`, "g")).map((part,j) =>
-                              part===q ? <mark key={j} style={{ background:"#e3b34130", color:"#e3b341", borderRadius:3, padding:"0 1px" }}>{part}</mark> : part
-                            ) : item.name}
-                          </div>
-                          <Badge label={item.category} color={CAT_COLORS[item.category]||"#7d8590"} />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+            {products.filter(x=>!x.outOfStock&&!x.alwaysBuy).length>0 && !outOfStockSearch.trim() && (
+              <div style={{ marginTop:16, padding:"10px 14px", background:"#161b2280", border:"1px solid #21262d", borderRadius:10, fontSize:"0.78rem", color:"#484f58", textAlign:"center" }}>
+                💡 כדי לסמן מוצר כנגמר — חפש אותו בשורת החיפוש למעלה
               </div>
             )}
           </div>
@@ -601,25 +588,48 @@ export default function App() {
             {filteredProducts.length>0 && (
               <div style={{ background:"#161b22", border:"1px solid #21262d", borderRadius:12, overflow:"hidden" }}>
                 {filteredProducts.map((item,i)=>(
-                  <div key={item.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", borderBottom:i<filteredProducts.length-1?"1px solid #21262d":"none", background:item.outOfStock?"#f8514908":"transparent" }}>
-                    <button onClick={()=>toggleOutOfStock(item.id)} title={item.outOfStock?"סמן כיש במלאי":"סמן כנגמר"} style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, border:`2px solid ${item.outOfStock?"#f85149":"#30363d"}`, background:item.outOfStock?"#f8514922":"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}>
-                      {item.outOfStock && <Icon name="x" size={12} color="#f85149" />}
-                    </button>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:500, fontSize:"0.93rem", color:item.outOfStock?"#f85149":"#e6edf3" }}>{item.name}</div>
-                      <div style={{ fontSize:"0.72rem", color:CAT_COLORS[item.category]||"#7d8590", marginTop:1 }}>{item.category}</div>
-                    </div>
-                    {item.outOfStock && <Badge label="חסר" color="#f85149" />}
-                    {item.alwaysHome && !item.outOfStock && <Badge label="תמיד בבית" color="#79c0ff" />}
-                    <button onClick={()=>toggleAlwaysHome(item.id)} title={item.alwaysHome?"הסר 'תמיד בבית'":"סמן כתמיד בבית"} style={{ background:item.alwaysHome?"#79c0ff22":"none", border:`1px solid ${item.alwaysHome?"#79c0ff50":"transparent"}`, borderRadius:6, padding:"4px 6px", cursor:"pointer", transition:"all 0.15s" }}>
-                      <Icon name="home" size={15} color={item.alwaysHome?"#79c0ff":"#484f58"} />
-                    </button>
-                    <button onClick={()=>toggleAlways(item.id)} style={{ background:item.alwaysBuy?"#e3b34122":"none", border:`1px solid ${item.alwaysBuy?"#e3b34150":"transparent"}`, borderRadius:6, padding:"4px 6px", cursor:"pointer", transition:"all 0.15s" }}>
-                      <Icon name="star" size={15} color={item.alwaysBuy?"#e3b341":"#484f58"} />
-                    </button>
-                    <button onClick={()=>deleteProduct(item.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:"4px" }}>
-                      <Icon name="trash" size={15} color="#484f58" />
-                    </button>
+                  <div key={item.id} style={{ borderBottom:i<filteredProducts.length-1?"1px solid #21262d":"none" }}>
+                    {/* Edit mode */}
+                    {editingProduct?.id===item.id ? (
+                      <div style={{ display:"flex", gap:8, padding:"10px 12px", alignItems:"center", flexWrap:"wrap", background:"#1a2030" }}>
+                        <input style={{ ...inputStyle, flex:1, minWidth:120, padding:"7px 11px", fontSize:"0.88rem" }}
+                          value={editingProduct.name}
+                          onChange={e=>setEditingProduct(p=>({...p, name:e.target.value}))}
+                          onKeyDown={e=>e.key==="Enter"&&saveProductEdit()} autoFocus />
+                        <select style={{ ...inputStyle, padding:"7px 11px", fontSize:"0.85rem" }}
+                          value={editingProduct.category}
+                          onChange={e=>setEditingProduct(p=>({...p, category:e.target.value}))}>
+                          {CATEGORIES.map(c=><option key={c}>{c}</option>)}
+                        </select>
+                        <button onClick={saveProductEdit} style={{ background:"#238636", border:"none", borderRadius:7, color:"#fff", fontFamily:"inherit", fontWeight:700, fontSize:"0.85rem", padding:"7px 14px", cursor:"pointer" }}>שמור</button>
+                        <button onClick={()=>setEditingProduct(null)} style={{ background:"none", border:"1px solid #30363d", borderRadius:7, color:"#7d8590", fontFamily:"inherit", fontSize:"0.85rem", padding:"7px 12px", cursor:"pointer" }}>ביטול</button>
+                      </div>
+                    ) : (
+                      /* Normal row */
+                      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", background:item.outOfStock?"#f8514908":"transparent" }}>
+                        <button onClick={()=>toggleOutOfStock(item.id)} title={item.outOfStock?"סמן כיש במלאי":"סמן כנגמר"} style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, border:`2px solid ${item.outOfStock?"#f85149":"#30363d"}`, background:item.outOfStock?"#f8514922":"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}>
+                          {item.outOfStock && <Icon name="x" size={12} color="#f85149" />}
+                        </button>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:500, fontSize:"0.93rem", color:item.outOfStock?"#f85149":"#e6edf3" }}>{item.name}</div>
+                          <div style={{ fontSize:"0.72rem", color:CAT_COLORS[item.category]||"#7d8590", marginTop:1 }}>{item.category}</div>
+                        </div>
+                        {item.outOfStock && <Badge label="חסר" color="#f85149" />}
+                        {item.alwaysHome && !item.outOfStock && <Badge label="תמיד בבית" color="#79c0ff" />}
+                        <button onClick={()=>toggleAlwaysHome(item.id)} title={item.alwaysHome?"הסר 'תמיד בבית'":"סמן כתמיד בבית"} style={{ background:item.alwaysHome?"#79c0ff22":"none", border:`1px solid ${item.alwaysHome?"#79c0ff50":"transparent"}`, borderRadius:6, padding:"4px 6px", cursor:"pointer", transition:"all 0.15s" }}>
+                          <Icon name="home" size={15} color={item.alwaysHome?"#79c0ff":"#484f58"} />
+                        </button>
+                        <button onClick={()=>toggleAlways(item.id)} style={{ background:item.alwaysBuy?"#e3b34122":"none", border:`1px solid ${item.alwaysBuy?"#e3b34150":"transparent"}`, borderRadius:6, padding:"4px 6px", cursor:"pointer", transition:"all 0.15s" }}>
+                          <Icon name="star" size={15} color={item.alwaysBuy?"#e3b341":"#484f58"} />
+                        </button>
+                        <button onClick={()=>setEditingProduct({id:item.id, name:item.name, category:item.category})} style={{ background:"none", border:"none", cursor:"pointer", padding:"4px" }}>
+                          <Icon name="edit2" size={15} color="#484f58" />
+                        </button>
+                        <button onClick={()=>deleteProduct(item.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:"4px" }}>
+                          <Icon name="trash" size={15} color="#484f58" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
