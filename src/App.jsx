@@ -140,10 +140,24 @@ export default function App() {
   const addIngredient    = () => {
     const name = ingredientInput.trim();
     if (!name) return;
-    setIngredientList(l => [...l, { id:Date.now(), name }]);
+    setIngredientList(l => [...l, { id:Date.now(), name, alwaysHome:false }]);
     setIngredientInput("");
   };
   const removeIngredient = id => setIngredientList(l => l.filter(x => x.id!==id));
+  const toggleIngAlwaysHome = id => setIngredientList(l => l.map(x => x.id===id ? {...x, alwaysHome:!x.alwaysHome} : x));
+
+  // Mark ingredient as alwaysHome in global products list
+  const markIngredientAsAlwaysHome = (ingName) => {
+    setProducts(prev => {
+      const exists = prev.find(p => p.name.trim()===ingName.trim());
+      if (exists) {
+        return prev.map(p => p.name.trim()===ingName.trim() ? {...p, alwaysHome:true} : p);
+      } else {
+        return [...prev, { id:Date.now()+Math.random(), name:ingName, category:"אחר", alwaysBuy:false, alwaysHome:true, outOfStock:false, bought:false }];
+      }
+    });
+    showToast(`"${ingName}" סומן כתמיד בבית ✓`);
+  };
 
   const saveRecipe = () => {
     if (!recipeName.trim() || ingredientList.length===0) return;
@@ -277,7 +291,51 @@ export default function App() {
         {/* ══ SHOPPING TAB ══ */}
         {tab==="shopping" && (
           <div>
-            {toBuy.length===0 && (
+            {/* Global search */}
+            <div style={{ position:"relative", marginBottom:16 }}>
+              <svg style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#484f58" strokeWidth={2.5} strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input style={{ ...inputStyle, width:"100%", paddingRight:38, paddingLeft:outOfStockSearch?36:13 }}
+                placeholder="חפש מוצר לסימון כנגמר... (קטשופ, חלב, לחם)"
+                value={outOfStockSearch} onChange={e=>setOutOfStockSearch(e.target.value)} />
+              {outOfStockSearch && (
+                <button onClick={()=>setOutOfStockSearch("")} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center" }}>
+                  <Icon name="x" size={14} color="#484f58" />
+                </button>
+              )}
+            </div>
+            {outOfStockSearch.trim() && (() => {
+              const q = outOfStockSearch.trim();
+              const results = products.filter(x => x.name.includes(q));
+              if (results.length===0) return (
+                <div style={{ background:"#161b22", border:"1px solid #21262d", borderRadius:12, padding:"16px", textAlign:"center", color:"#484f58", fontSize:"0.85rem", marginBottom:16 }}>
+                  לא נמצא "{q}" — אפשר להוסיף בלשונית ניהול מוצרים
+                </div>
+              );
+              return (
+                <div style={{ background:"#161b22", border:"1px solid #21262d", borderRadius:12, overflow:"hidden", marginBottom:16 }}>
+                  {results.map((item,i,arr) => (
+                    <div key={item.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", borderBottom:i<arr.length-1?"1px solid #21262d":"none", background:item.outOfStock?"#f8514908":"transparent" }}>
+                      <button onClick={()=>{toggleOutOfStock(item.id); if(!item.outOfStock) setOutOfStockSearch("");}}
+                        style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, border:`2px solid ${item.outOfStock?"#f85149":"#30363d"}`, background:item.outOfStock?"#f8514922":"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}>
+                        {item.outOfStock && <Icon name="x" size={12} color="#f85149" />}
+                      </button>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:"0.93rem", fontWeight:500, color:item.outOfStock?"#f85149":"#e6edf3" }}>
+                          {item.name.split(new RegExp(`(${q})`, "g")).map((part,j) =>
+                            part===q ? <mark key={j} style={{ background:"#e3b34130", color:"#e3b341", borderRadius:3, padding:"0 1px" }}>{part}</mark> : part
+                          )}
+                        </div>
+                        <div style={{ fontSize:"0.72rem", color:CAT_COLORS[item.category]||"#7d8590", marginTop:1 }}>{item.category}</div>
+                      </div>
+                      {item.outOfStock ? <Badge label="חסר" color="#f85149" /> : <Badge label="יש בבית" color="#3fb950" />}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            {toBuy.length===0 && !outOfStockSearch.trim() && (
               <div style={{ background:"#23863618", border:"1px solid #23863640", borderRadius:14, padding:24, textAlign:"center", marginBottom:16 }}>
                 <div style={{ fontSize:"2rem", marginBottom:8 }}>✅</div>
                 <div style={{ fontWeight:700, color:"#3fb950", fontSize:"1rem" }}>הכל בבית!</div>
@@ -393,14 +451,24 @@ export default function App() {
               {/* Ingredient chips */}
               {ingredientList.length>0 ? (
                 <div style={{ marginBottom:14, padding:"10px 12px", background:"#0d1117", borderRadius:10, border:"1px solid #21262d", display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {ingredientList.map(ing => (
-                    <span key={ing.id} style={{ display:"inline-flex", alignItems:"center", gap:5, background:"#21262d", border:"1px solid #30363d", borderRadius:99, padding:"4px 10px 4px 7px", fontSize:"0.82rem" }}>
-                      {ing.name}
-                      <button onClick={()=>removeIngredient(ing.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, display:"flex", lineHeight:1 }}>
-                        <Icon name="x" size={12} color="#7d8590" />
-                      </button>
-                    </span>
-                  ))}
+                  {ingredientList.map(ing => {
+                    const inProducts = products.find(p => p.name.trim()===ing.name.trim());
+                    const isAlwaysHome = inProducts?.alwaysHome || ing.alwaysHome;
+                    return (
+                      <span key={ing.id} style={{ display:"inline-flex", alignItems:"center", gap:4, background: isAlwaysHome?"#79c0ff18":"#21262d", border:`1px solid ${isAlwaysHome?"#79c0ff50":"#30363d"}`, borderRadius:99, padding:"4px 8px 4px 7px", fontSize:"0.82rem" }}>
+                        {ing.name}
+                        <button
+                          onClick={()=>markIngredientAsAlwaysHome(ing.name)}
+                          title="סמן כתמיד בבית"
+                          style={{ background:"none", border:"none", cursor:"pointer", padding:"0 2px", display:"flex", lineHeight:1, opacity: isAlwaysHome?1:0.4 }}>
+                          <Icon name="home" size={12} color={isAlwaysHome?"#79c0ff":"#7d8590"} />
+                        </button>
+                        <button onClick={()=>removeIngredient(ing.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, display:"flex", lineHeight:1 }}>
+                          <Icon name="x" size={12} color="#7d8590" />
+                        </button>
+                      </span>
+                    );
+                  })}
                 </div>
               ) : (
                 <div style={{ color:"#484f58", fontSize:"0.8rem", marginBottom:14, padding:"6px 0" }}>הוסף לפחות מצרך אחד</div>
