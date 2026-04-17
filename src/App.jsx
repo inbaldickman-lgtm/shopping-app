@@ -1,14 +1,30 @@
 import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-// ─── Storage helpers (shared across all users) ─────────────────────────────
+// ─── Supabase client ────────────────────────────────────────────────────────
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_KEY = "YOUR_SUPABASE_KEY";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── Storage helpers ────────────────────────────────────────────────────────
 async function load(key) {
   try {
-    const r = await window.storage.get(key, true);
-    return r ? JSON.parse(r.value) : null;
+    const { data } = await supabase
+      .from("data")
+      .select("value")
+      .eq("id", key === "hm_products2" ? 1 : 2)
+      .single();
+    return data ? JSON.parse(data.value) : null;
   } catch { return null; }
 }
+
 async function save(key, val) {
-  try { await window.storage.set(key, JSON.stringify(val), true); } catch {}
+  try {
+    const id = key === "hm_products2" ? 1 : 2;
+    await supabase
+      .from("data")
+      .upsert({ id, value: JSON.stringify(val) });
+  } catch {}
 }
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
