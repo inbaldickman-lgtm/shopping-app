@@ -125,7 +125,11 @@ export default function App() {
   // ── Products actions ──
   const addProduct      = () => {
     if (!addName.trim()) return;
-    setProducts(p => [...p, { id:Date.now(), name:addName.trim(), category:addCat, alwaysBuy:addAlways, alwaysHome:addAlwaysHome, outOfStock:addAlways, bought:false }]);
+    const nameT = addName.trim();
+    if (products.find(p => p.name.trim() === nameT)) {
+      showToast(`"${nameT}" כבר קיים ברשימה`); return;
+    }
+    setProducts(p => [...p, { id:Date.now(), name:nameT, category:addCat, alwaysBuy:addAlways, alwaysHome:addAlwaysHome, outOfStock:addAlways, bought:false }]);
     setAddName(""); setAddAlways(false); setAddAlwaysHome(false);
   };
   const toggleOutOfStock = id => setProducts(p => p.map(x => x.id===id ? {...x, outOfStock:!x.outOfStock, bought:false} : x));
@@ -148,10 +152,11 @@ export default function App() {
 
   // Mark ingredient as alwaysHome in global products list
   const markIngredientAsAlwaysHome = (ingName) => {
+    const nameT = ingName.trim();
     setProducts(prev => {
-      const exists = prev.find(p => p.name.trim()===ingName.trim());
+      const exists = prev.find(p => p.name.trim()===nameT);
       if (exists) {
-        return prev.map(p => p.name.trim()===ingName.trim() ? {...p, alwaysHome:true} : p);
+        return prev.map(p => p.name.trim()===nameT ? {...p, alwaysHome:true} : p);
       } else {
         return [...prev, { id:Date.now()+Math.random(), name:ingName, category:"אחר", alwaysBuy:false, alwaysHome:true, outOfStock:false, bought:false }];
       }
@@ -189,14 +194,17 @@ export default function App() {
     setProducts(prev => {
       let updated = [...prev];
       recipe.ingredients.forEach(ing => {
-        const match = updated.find(p => p.name.trim()===ing.name.trim());
+        const nameT = ing.name.trim();
+        const match = updated.find(p => p.name.trim()===nameT);
         if (match) {
-          if (match.alwaysHome && !match.outOfStock) { skipped++; return; } // skip — always at home
+          if (match.alwaysHome && !match.outOfStock) { skipped++; return; }
           if (!match.outOfStock) { updated = updated.map(p => p.id===match.id ? {...p, outOfStock:true, bought:false} : p); added++; }
           else alreadyIn++;
         } else {
-          updated = [...updated, { id:Date.now()+Math.random(), name:ing.name, category:"אחר", alwaysBuy:false, alwaysHome:false, outOfStock:true, bought:false }];
-          added++;
+          if (!updated.find(p => p.name.trim()===nameT)) {
+            updated = [...updated, { id:Date.now()+Math.random(), name:ing.name, category:"אחר", alwaysBuy:false, alwaysHome:false, outOfStock:true, bought:false }];
+            added++;
+          }
         }
       });
       return updated;
